@@ -19,8 +19,8 @@ def calculate_accuracy(dataloader, model):
     total_images = 0
     with torch.no_grad():
         for batch in dataloader:
-            images = batch["image"].to("cuda")
-            targets = batch["label"].to("cuda")
+            images = batch["image"].to(device)
+            targets = batch["label"].to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)
             # print(targets, outputs)
@@ -32,34 +32,46 @@ def calculate_accuracy(dataloader, model):
         return acc
 
 
-print("loading model")
-model = Model().to("cuda")
-model.load_state_dict(torch.load("./models/emotion_detection_model.pt"))
-model.eval()
+def transform_image(img):
+    """
+    :param img: PIL image
+    :return:
+    """
+    transform = transforms.Compose(
+        [
+            transforms.Resize((100, 100)),
+            transforms.ToTensor(),
+        ])
 
-print("testing accuracy")
+    img = transform(img)
+    img = torch.unsqueeze(img, 0)
+    img = img.to(device)
 
-train_ds, test_ds = get_data()
-test_loader = DataLoader(train_ds, batch_size=32)
-print(f"Accuracy on test data: {calculate_accuracy(test_loader, model)}%")
+    return img
 
-print("Test on random image")
-img = Image.open("./test_images/happy-woman-2.jpg")
-transform = transforms.Compose(
-    [
-        transforms.Resize((100, 100)),
-        transforms.ToTensor(),
-    ])
 
-img = transform(img)
-plt.imshow(img.permute(1, 2, 0))
-plt.show()
+if __name__ == "__main__":
+    print("loading model")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-img = torch.unsqueeze(img, 0)
+    model = Model().to(device)
+    model.load_state_dict(torch.load("./models/emotion_detection_model.pt", map_location=torch.device(device)))
+    model.eval()
 
-img = img.to('cuda')
+    print("testing accuracy")
 
-outputs = model(img)
-_, preds = torch.max(outputs, dim=1)
+    train_ds, test_ds = get_data()
+    test_loader = DataLoader(train_ds, batch_size=32)
+    #print(f"Accuracy on test data: {calculate_accuracy(test_loader, model)}%")
 
-print(outputs, model.classes[preds.item()])
+    print("Test on random image")
+    img = Image.open("./test_images/happy-woman-2.jpg")
+    img = transform_image(img)
+
+    #plt.imshow(img.permute(1, 2, 0))
+    #plt.show()
+
+    outputs = model(img)
+    _, preds = torch.max(outputs, dim=1)
+
+    print(outputs, model.classes[preds.item()])
