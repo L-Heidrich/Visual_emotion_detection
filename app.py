@@ -1,6 +1,5 @@
 import os
 import io
-import numpy as np
 from PIL import Image
 
 from flask import Flask, request, jsonify
