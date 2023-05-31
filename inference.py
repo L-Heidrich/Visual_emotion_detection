@@ -2,7 +2,6 @@ from model_class import Model
 import torch
 from PIL import Image
 from torchvision import transforms
-import matplotlib.pyplot as plt
 from data import get_data
 from torch.utils.data import DataLoader
 
@@ -35,7 +34,7 @@ def calculate_accuracy(dataloader, model):
 def transform_image(img):
     """
     :param img: PIL image
-    :return:
+    :return: tensor image
     """
     transform = transforms.Compose(
         [
@@ -60,16 +59,16 @@ if __name__ == "__main__":
 
     print("testing accuracy")
 
-    train_ds, test_ds = get_data()
+    train_ds, test_ds = get_data(0.7, 0.15, 0.15)
     test_loader = DataLoader(train_ds, batch_size=32)
-    #print(f"Accuracy on test data: {calculate_accuracy(test_loader, model)}%")
+    # print(f"Accuracy on test data: {calculate_accuracy(test_loader, model)}%")
 
     print("Test on random image")
     img = Image.open("./test_images/happy-woman-2.jpg")
     img = transform_image(img)
 
-    #plt.imshow(img.permute(1, 2, 0))
-    #plt.show()
+    # plt.imshow(img.permute(1, 2, 0))
+    # plt.show()
 
     outputs = model(img)
     _, preds = torch.max(outputs, dim=1)

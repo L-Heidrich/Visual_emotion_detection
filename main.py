@@ -1,4 +1,5 @@
 import itertools
+import os
 
 import torch
 from torch.utils.data import DataLoader
@@ -37,6 +38,8 @@ def calculate_accuracy(dataloader, model, device):
 
 def train(models_list, epochs_list, train_loader, val_loader, test_loader, criterion, learning_rates, device):
     """
+    Trains a set of models with multiple combinations of hyperparameters
+
     :param model: array of pytorch model classes
     :param epochs: array of epochs numbers
     :param train_loader: dataloader for training data
@@ -45,7 +48,7 @@ def train(models_list, epochs_list, train_loader, val_loader, test_loader, crite
     :param criterion: loss function
     :param learning_rates: learning rates to be used
     :param device: where to train the model on. cuda or cpu
-    :return:
+    :return: dictionary of results
     """
 
     print(f"Started training at {datetime.now()}")
@@ -54,11 +57,9 @@ def train(models_list, epochs_list, train_loader, val_loader, test_loader, crite
     hyper_param_combinations = itertools.product(models_list, epochs_list, learning_rates)
     for setup in hyper_param_combinations:
 
-        model, epochs, lr = setup
-
-        model_starting_checkpoint = model.state_dict()
-        model.load_state_dict(model_starting_checkpoint)
-
+        model_class, epochs, lr = setup
+        model = model_class()
+        model = model.to(device)
         print(f"Training with setup: [epochs]: {epochs}, [lr]: {lr}, [device]: {device}")
         optimizer = optim.SGD(model.parameters(),
                               lr=lr)
@@ -77,18 +78,22 @@ def train(models_list, epochs_list, train_loader, val_loader, test_loader, crite
                 images = batch["image"].to(device)
                 targets = batch["label"].to(device)
 
+                # forward pass
                 out = model(images)
-
                 loss = criterion(out, targets)
+
+                # backward pass/ calculating gradients
                 loss.backward()
                 running_loss += loss.item()
+
+                # adjusting weights
                 optimizer.step()
 
             acc = calculate_accuracy(test_loader, model, device)
             loss = running_loss / len(train_loader)
             losses.append(loss)
             accs.append(acc)
-            print(f"Epoch [{epoch}]: loss: {loss}, train acc {acc}%, Time: {datetime.now()}")
+            print(f"Epoch [{epoch}]: loss: {loss}, test acc {acc}%, Time: {datetime.now()}")
 
         results.append({
             "accuracy": acc,
@@ -100,6 +105,28 @@ def train(models_list, epochs_list, train_loader, val_loader, test_loader, crite
     return results
 
 
+def validate_models(dl, device):
+
+    """
+    validates the models in the ./models folder with the validation set
+    :param dl: data loader for validation set
+    :param device: device the models should be validated on
+    :return:
+    """
+    models = []
+    results = []
+
+    for model_name in os.listdir("./models"):
+        mc = Model().to(device)
+        mc.load_state_dict(torch.load("./models/" + model_name))
+        mc.eval()
+        models.append(mc)
+        results.append({"name": model_name,
+                        "validation_accuracy": calculate_accuracy(dl, mc, device)
+                        })
+    return results
+
+
 if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     train_ds, val_ds, test_ds = get_data(0.7, 0.15, 0.15)
@@ -108,18 +135,11 @@ if __name__ == "__main__":
     test_loader = DataLoader(train_ds, batch_size=32)
     val_loader = DataLoader(val_ds, batch_size=32)
 
-    model = Model().to(device)
     epochs = [10, 20]
     learning_rates = [0.03, 0.003, 0.3]
 
     criterion = nn.CrossEntropyLoss()
-    results = train([model],
-                    epochs,
-                    learning_rates=learning_rates,
-                    train_loader=train_loader,
-                    test_loader=test_loader,
-                    val_loader=val_loader,
-                    criterion=criterion,
-                    device=device)
 
-    print(results)
+
+    validation_results = validate_models(val_loader, device)
+    print(validation_results)
