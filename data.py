@@ -20,7 +20,9 @@ def get_data(train_percentile, val_percentile, test_percentile):
 
         my_transforms = transforms.Compose(
             [
-                transforms.RandomHorizontalFlip(),
+                # transforms.ColorJitter(brightness=(0.5, 1.5), contrast=(1), saturation=(0.5, 1.5), hue=(-0.1, 0.1)),
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.RandomGrayscale(p=0.5),
                 transforms.ToTensor()]
         )
 
@@ -42,3 +44,14 @@ def get_data(train_percentile, val_percentile, test_percentile):
         val_ds = Dataset.from_dict(val_ds).with_format("torch").with_transform(apply_test_transforms)
 
         return train_ds, val_ds, test_ds
+
+
+if __name__ == "__main__":
+
+    train_ds, val_ds, test_ds = get_data(0.8, 0.1, 0.1)
+
+    labels = [0, 0, 0, 0, 0, 0, 0, 0]
+    for entry in train_ds:
+        labels[entry["label"]] += 1
+
+    print(labels)
