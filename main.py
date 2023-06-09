@@ -26,7 +26,7 @@ def calculate_accuracy(dataloader, model, device):
     total_images = 0
     with torch.no_grad():
         for batch in dataloader:
-            images = batch["image"].to(device)
+            images = batch["data"].to(device)
             targets = batch["label"].to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)
@@ -34,8 +34,6 @@ def calculate_accuracy(dataloader, model, device):
             total_images += targets.size(0)
             correct_images += (predicted == targets).sum().item()
             incorrect_images += (predicted != targets).sum().item()
-
-        # Todo: combine prediction and target tensors to a list
 
         # print(total_images, correct_images)
         acc = 100 * correct_images // total_images
@@ -80,7 +78,7 @@ def train(models_list, epochs_list, train_loader, val_loader, test_loader, crite
             for batch in train_loader:
                 optimizer.zero_grad()
 
-                images = batch["image"].to(device)
+                images = batch["data"].to(device)
                 targets = batch["label"].to(device)
 
                 # forward pass
@@ -106,8 +104,8 @@ def train(models_list, epochs_list, train_loader, val_loader, test_loader, crite
             else:
                 epochs_since_improvement += 1
 
-            if epochs_since_improvement >= 10:
-                print("Early stopping triggered. No improvement in validation accuracy for 5 epochs.")
+            if epochs_since_improvement >= 20:
+                print("Early stopping triggered. No improvement in validation accuracy for 20 epochs.")
                 break
 
             if epoch % 10 == 0:
@@ -164,7 +162,7 @@ if __name__ == "__main__":
     torch.cuda.empty_cache()
 
     criterion = nn.CrossEntropyLoss()
-    models_list = [Model]
+    models_list = [Model_small]
 
     results = train(models_list=models_list,
                     epochs_list=epochs,
