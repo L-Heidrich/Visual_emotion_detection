@@ -1,4 +1,4 @@
-# Visual_emotion_detection
+# Visual emotion detection using a CNN 
 
 
 ### TL;DR: A convolutional neural network trained recognize a persons mood based on their face expression.
