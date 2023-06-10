@@ -10,7 +10,8 @@ from data import get_data
 import matplotlib.pyplot as plt
 from model_class import Model, Model_small, Model_big
 from datetime import datetime
-
+import torchmetrics
+from torchvision.models import resnet50, ResNet50_Weights
 
 def calculate_accuracy(dataloader, model, device):
     """
@@ -30,17 +31,27 @@ def calculate_accuracy(dataloader, model, device):
             targets = batch["label"].to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)
-            # print(targets, outputs)
+            _, targets = torch.max(targets.data, 1)
+
+            # print(targets, predicted)
+            # print(targets.shape, predicted.shape)
+
             total_images += targets.size(0)
+
             correct_images += (predicted == targets).sum().item()
             incorrect_images += (predicted != targets).sum().item()
+            # acc = torchmetrics.functional.accuracy(targets, predicted, task="multiclass", num_labels=8)
+
+            #print(f"total images: {total_images}, correct: {correct_images}, incorrect: {incorrect_images}")
+
 
         # print(total_images, correct_images)
         acc = 100 * correct_images // total_images
         return acc
 
 
-def train(models_list, epochs_list, train_loader, val_loader, test_loader, criterion, learning_rates, device):
+def train(models_list, epochs_list, train_loader, val_loader, test_loader, criterion, learning_rates, device,
+          early_stopping = False):
     """
     Trains a set of models with multiple combinations of hyperparameters
 
@@ -51,6 +62,7 @@ def train(models_list, epochs_list, train_loader, val_loader, test_loader, crite
     :param criterion: loss function
     :param learning_rates: learning rates to be used
     :param device: where to train the model on. cuda or cpu
+    :param early_stopping: enable or disable early stopping. Off by default
     :return: dictionary of results
     """
 
@@ -61,9 +73,9 @@ def train(models_list, epochs_list, train_loader, val_loader, test_loader, crite
     for setup in hyper_param_combinations:
 
         model_class, epochs, lr = setup
-        model = model_class()
+        model = model_class
         model = model.to(device)
-        print(f"Training with setup: [epochs]: {epochs}, [lr]: {lr}, [device]: {device}, [model]: {model.name}")
+        print(f"Training with setup: [epochs]: {epochs}, [lr]: {lr}, [device]: {device}, [model]: ")
         optimizer = optim.SGD(model.parameters(),
                               lr=lr, momentum=0.9)
         val_losses = []
@@ -83,7 +95,7 @@ def train(models_list, epochs_list, train_loader, val_loader, test_loader, crite
 
                 # forward pass
                 out = model(images)
-                loss = criterion(out, targets)
+                loss = criterion(out, torch.argmax(targets, dim=1))
 
                 # backward pass/ calculating gradients
                 loss.backward()
@@ -98,15 +110,17 @@ def train(models_list, epochs_list, train_loader, val_loader, test_loader, crite
             val_losses.append(val_loss)
 
             # Early stopping
-            if val_acc > best_val_acc:
-                best_val_acc = val_acc
-                epochs_since_improvement = 0
-            else:
-                epochs_since_improvement += 1
 
-            if epochs_since_improvement >= 20:
-                print("Early stopping triggered. No improvement in validation accuracy for 20 epochs.")
-                break
+            if early_stopping:
+                if val_acc > best_val_acc:
+                    best_val_acc = val_acc
+                    epochs_since_improvement = 0
+                else:
+                    epochs_since_improvement += 1
+
+                if epochs_since_improvement >= 20:
+                    print("Early stopping triggered. No improvement in validation accuracy for 20 epochs.")
+                    break
 
             if epoch % 10 == 0:
                 print(f"Epoch [{epoch}]: loss: {val_loss}, validation acc {val_acc}%, Time: {datetime.now()}")
@@ -121,8 +135,8 @@ def train(models_list, epochs_list, train_loader, val_loader, test_loader, crite
             "model": {model.name}
         })
 
-        torch.save(model.state_dict(),
-                   f"./models/emotion_detection_model_epochs_{epochs}_accuracy_{test_acc}_lr_{lr}.pt")
+        #torch.save(model.state_dict(),
+        #           f"./models/emotion_detection_model_epochs_{epochs}_accuracy_{test_acc}_lr_{lr}.pt")
     return results
 
 
@@ -155,14 +169,20 @@ if __name__ == "__main__":
     test_loader = DataLoader(train_ds, batch_size=16)
     val_loader = DataLoader(val_ds, batch_size=16)
 
-    epochs = [200]
+    epochs = [50]
     learning_rates = [0.003]
 
+    torch.cuda.set_per_process_memory_fraction(0.7, 0)
     gc.collect()
     torch.cuda.empty_cache()
 
     criterion = nn.CrossEntropyLoss()
-    models_list = [Model_small]
+
+    # ResNet for control
+    model = resnet50(weights=ResNet50_Weights)
+    model.fc = nn.Linear(in_features=2048, out_features=8, bias=True)
+
+    models_list = [model]
 
     results = train(models_list=models_list,
                     epochs_list=epochs,
@@ -172,5 +192,6 @@ if __name__ == "__main__":
                     criterion=criterion,
                     learning_rates=learning_rates,
                     device=device)
+
     #validation_results = validate_models(val_loader, device)
     #print(validation_results)

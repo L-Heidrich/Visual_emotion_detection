@@ -1,6 +1,7 @@
+import torch
 from datasets import load_dataset, Dataset
 from torchvision import transforms
-import torch.functional as F
+import torch.nn.functional as F
 
 def get_data(train_percentile = None, val_percentile = None, test_percentile= None):
     dataset = load_dataset("FastJobs/Visual_Emotional_Analysis", split="train")
@@ -40,15 +41,18 @@ def get_data(train_percentile = None, val_percentile = None, test_percentile= No
 
     def apply_transforms(images):
         images["data"] = [my_transforms(image) for image in images["data"]]
+        images["label"] = [torch.Tensor(label) for label in images["label"]]
         return images
 
     def apply_test_transforms(images):
         images["data"] = [my_test_transforms(image) for image in images["data"]]
+        images["label"] = [torch.Tensor(label) for label in images["label"]]
+
         return images
 
-    train_ds = Dataset.from_dict({"data": train_ds["image"], "label": F.one_hot(train_ds["labels"], 8)}).with_format("torch").with_transform(apply_transforms)
-    test_ds = Dataset.from_dict({"data": test_ds["image"], "label": test_ds["labels"]}).with_format("torch").with_transform(apply_test_transforms)
-    val_ds = Dataset.from_dict({"data": val_ds["image"], "label": val_ds["labels"]}).with_format("torch").with_transform(apply_test_transforms)
+    train_ds = Dataset.from_dict({"data": train_ds["image"], "label": F.one_hot(torch.Tensor(train_ds["label"]).to(torch.int64), 8)}).with_format("torch").with_transform(apply_transforms)
+    test_ds = Dataset.from_dict({"data": test_ds["image"], "label": F.one_hot(torch.Tensor(test_ds["label"]).to(torch.int64), 8)}).with_format("torch").with_transform(apply_test_transforms)
+    val_ds = Dataset.from_dict({"data": val_ds["image"], "label": F.one_hot(torch.Tensor(val_ds["label"]).to(torch.int64), 8)}).with_format("torch").with_transform(apply_test_transforms)
 
     return train_ds, val_ds, test_ds
 
@@ -56,9 +60,7 @@ def get_data(train_percentile = None, val_percentile = None, test_percentile= No
 if __name__ == "__main__":
 
     train_ds, val_ds, test_ds = get_data(0.8, 0.1, 0.1)
-    print(val_ds["labels"])
-    lables = [0 for _ in range(150)]
-    for entry in test_ds:
-        lables[entry["label"]] +=1
-    print(val_ds)
-    print(lables)
+
+    for entry in val_ds:
+        print(entry)
+        break

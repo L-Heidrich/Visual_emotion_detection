@@ -19,15 +19,14 @@ class Model(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.conv1 = conv_block(3, 128, kernel_size=3, padding=1, pool=False)
+        self.conv1 = conv_block(3, 128, kernel_size=3, padding=1, pool=True)
         self.conv2 = conv_block(128, 256, kernel_size=3)
-        self.conv3 = conv_block(256, 512, kernel_size=3, padding=1, pool=False)
+        self.conv3 = conv_block(256, 512, kernel_size=3, padding=1, pool=True)
         self.conv4 = conv_block(512, 1024, kernel_size=5)
         self.conv5 = conv_block(1024, 2048, kernel_size=5, padding=2, pool=True)
-        self.conv6 = conv_block(2048, 5096, kernel_size=5)
         self.classifier = nn.Sequential(nn.Flatten(),
                                         nn.Dropout(0.2),
-                                        nn.Linear(45864, 256),
+                                        nn.Linear(2048, 256),
                                         nn.ReLU(),
                                         nn.Linear(256, 8)
                                         )
@@ -41,7 +40,6 @@ class Model(nn.Module):
         x = self.conv3(x)
         x = self.conv4(x)
         x = self.conv5(x)
-        x = self.conv6(x)
         x = self.classifier(x)
 
         return x
@@ -99,9 +97,9 @@ class Model_small(nn.Module):
         self.conv5 = conv_block(512, 1024)
         self.classifier = nn.Sequential(nn.Flatten(),
                                         nn.Dropout(0.2),
-                                        nn.Linear(25600, 256),
+                                        nn.Linear(1024, 256),
                                         nn.ReLU(),
-                                        nn.Linear(256, 150)
+                                        nn.Linear(256, 8)
                                         )
 
         self.name = "Model_small"
